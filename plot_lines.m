@@ -12,6 +12,8 @@ function pts = plot_lines(r,a,x0,y0)
         y_off = r1*sin(a1)+(-1/tan(a1))*(x_off-r1*cos(a1));
         subs(y_off);
         
+        plot(x_off,y_off,'o');
+        
         pts = [pts;double(x_off) double(y_off)];
         
         pt1 = pts(i,1); pt2 = pts(i+1,1);
@@ -29,5 +31,8 @@ function pts = plot_lines(r,a,x0,y0)
     %disp('y-offset is'); disp(r*sin(a)+r*cos(a)/tan(a));
 
     %axis([0 1 0 0.5])
+    title('Output: Extracted lines')
+    daspect([1 1 1])
     hold off;
+    saveas(gcf,'Extracted_lines.png');
 end
