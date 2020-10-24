@@ -22,41 +22,35 @@ D = D; % Units to m
 deg2rad = pi/180;
 step_num = length(D);
 angle_range = 240;
-sampleSize = 2; % number of points to sample per trial
-maxDistance = 2; % max allowable distance for inliers
-
-fitLineFcn = @(points) polyfit(points(:,1),points(:,2),1); % fit function using polyfit
-evalLineFcn = ...   % distance evaluation function
-  @(model, points) sum((points(:, 2) - polyval(model, points(:,1))).^2,2);
 
 % Calculate params
-U = mean(D,1).';                                         %682*1
+U_o = median(D,1).';                                         %682*1
 V = var(D,0,1).'; % Calculate by sample variance.           682*1
-T = (linspace(0,angle_range,step_num).')*deg2rad;          %682*1
+T_o = (linspace(0,angle_range,step_num).')*deg2rad;          %682*1
 
-% windowing
-window_size = 5;
-stride = window_size;
-model = [];
-for offset = 1:stride:length(U)-window_size
-    disp(['Progress.....',num2str(int32(offset*100/(length(U)-window_size))),'%']);
-    s = offset; e = window_size+offset;
-    u = U(s:e); v = V(s:e); t = T(s:e);
-    if all(u ~=0) && all(v ~=0)
-        [modelRANSAC, inlierIdx] = ransac([u.*cos(t),u.*sin(t)],fitLineFcn,evalLineFcn, ...
-  sampleSize,maxDistance);
-        
-        model = [model; modelRANSAC];
+% Wavelet Denoising
+U = wdenoise(U_o,2, ...
+    'Wavelet', 'sym4', ...
+    'DenoisingMethod', 'Bayes', ...
+    'ThresholdRule', 'Median', ...
+    'NoiseEstimate', 'LevelIndependent');
 
-        %plot_polar_line_range(r,a, u(1)*cos(t(1)), u(end)*cos(t(end)) );
-        %plot_polar_pts(u,t);
-    else
-        disp('0 vectors...pass')
-    end
-end
+% Merging Only
+X = U.*cos(T_o); Y = U.*sin(T_o);
+D_merged = three_pts_merge([X,Y]);
+T = atan2(D_merged(:,2),D_merged(:,1));
+U = sqrt(D_merged(:,2).^2 + D_merged(:,1).^2);
+
+plot(D_merged(:,1),D_merged(:,2),'o');
+hold on
+plot(D_merged(:,1),D_merged(:,2),'-');
+%plot(X,Y,'.');
+%plot(U_o.*cos(T_o),U_o.*sin(T_o),'x');
+
+%legend('Merged points','Path of pts','Wavelet filtered','Mean of original');
+legend('Merged points','Path of pts');
+
 
 disp('...Complete. Draw a figure in png file');
 
-[R,A] = rect2polar(model(:,1),model(:,2));
-
-plot_lines(R, A,U(1)*cos(T(1)),U(1)*sin(T(1)));
+% plot_lines(U, T,U(1)*cos(T(1)),U(1)*sin(T(1)));
