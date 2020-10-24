@@ -23,19 +23,19 @@ deg2rad = pi/180;
 step_num = length(D);
 angle_range = 240;
 sampleSize = 2; % number of points to sample per trial
-maxDistance = 1; % max allowable distance for inliers
+maxDistance = 2; % max allowable distance for inliers
 
 fitLineFcn = @(points) polyfit(points(:,1),points(:,2),1); % fit function using polyfit
 evalLineFcn = ...   % distance evaluation function
   @(model, points) sum((points(:, 2) - polyval(model, points(:,1))).^2,2);
 
 % Calculate params
-U = median(D,1).';                                         %682*1
+U = mean(D,1).';                                         %682*1
 V = var(D,0,1).'; % Calculate by sample variance.           682*1
 T = (linspace(0,angle_range,step_num).')*deg2rad;          %682*1
 
 % windowing
-window_size = 7;
+window_size = 5;
 stride = window_size;
 model = [];
 for offset = 1:stride:length(U)-window_size
@@ -53,11 +53,10 @@ for offset = 1:stride:length(U)-window_size
     else
         disp('0 vectors...pass')
     end
-    
-    disp('...Complete. Draw a figure in png file');
 end
+
+disp('...Complete. Draw a figure in png file');
 
 [R,A] = rect2polar(model(:,1),model(:,2));
 
-[buf_r, buf_a] = merge_lines(R,A,0.95);
-plot_lines(buf_r, buf_a,U(1)*cos(T(1)),U(1)*sin(T(1)));
+plot_lines(R, A,U(1)*cos(T(1)),U(1)*sin(T(1)));
