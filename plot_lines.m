@@ -26,11 +26,9 @@ function pts = plot_lines(r,a,x0,y0)
         
         fplot(r1*sin(a1)+(-1/tan(a1))*(x-r1*cos(a1)),[pt1 pt2]);
     end
+    
+    plot(pts(:,1),pts(:,2),'o','Color','g');
 
-    %disp('Slope is'); disp(-1/tan(a));
-    %disp('y-offset is'); disp(r*sin(a)+r*cos(a)/tan(a));
-
-    %axis([0 1 0 0.5])
     title('Output: Extracted lines')
     daspect([1 1 1])
     hold off;

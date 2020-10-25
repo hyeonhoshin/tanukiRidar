@@ -36,7 +36,6 @@ U = wdenoise(U_o,3, ...
     'NoiseEstimate', 'LevelIndependent');
 
 % Plotting and saving
-figure(1);
 xs = U_o.*cos(T_o); ys = U_o.*sin(T_o); % Tranform to Cartesian cord
 plot(xs(1:20),ys(1:20),'x-');
 hold on;
@@ -49,31 +48,53 @@ title('After filtering');
 hold off;
 saveas(gcf,'first_denoised.png');
 
-%% Three points merging
+%% Ransac fitting
 
-D_merged = three_pts_merge([X,Y]);
+sampleSize = 2; % number of points to sample per trial
+maxDistance = 1; % max allowable distance for inliers
 
-T = atan2(D_merged(:,2),D_merged(:,1));
-U = sqrt(D_merged(:,2).^2 + D_merged(:,1).^2);% Tranform to Polar cord
+fitLineFcn = @(points) polyfit(points(:,1),points(:,2),1); % fit function using polyfit
+evalLineFcn = ...   % distance evaluation function
+  @(model, points) sum((points(:, 2) - polyval(model, points(:,1))).^2,2);
+
+% windowing
+window_size = 5;
+stride = window_size/2;
+model = [];
+for offset = 1:stride:length(U)-window_size
+    disp(['Progress.....',num2str(int32(offset*100/(length(U)-window_size))),'%']);
+    s = offset; e = window_size+offset;
+    u = U(s:e); t = T_o(s:e);
+    if all(u ~=0)
+        [modelRANSAC, inlierIdx] = ransac([u.*cos(t),u.*sin(t)],fitLineFcn,evalLineFcn, ...
+  sampleSize,maxDistance);  
+        model = [model; modelRANSAC];
+    else
+        disp('0 vectors...pass')
+    end
+    
+    disp('...Complete. Draw a figure in png file');
+end
+
+[R,A] = rect2polar(model(:,1),model(:,2));
+[buf_r, buf_a] = merge_lines(R,A,0.98);
+figure(2);
+
+plot_lines(buf_r, buf_a,U(1)*cos(T_o(1)),U(1)*sin(T_o(1)));
+hold on;
+title("Output:Extracted Files");
+saveas(gcf,'second_merged.png');
 
 % Plotting and saving
-
-xs = U_o.*cos(T_o); ys = U_o.*sin(T_o); % Only means.
-figure(w);
 plot(xs,ys,'.','Color','b');
 hold on
 plot(D_merged(:,1),D_merged(:,2),'o','Color','g');
-
-for i = 1:length(D_merged)-1
-    if ~is_inline(D_merged(i,:),D_merged(i+1,:))  %Condition : If is it on p-direction
-        % P-direction lines removal  
-        plot(D_merged(i:i+1,1),D_merged(i:i+1,2),'-','Color','r','LineWidth',2);
-    end
-end
+plot(D_merged(:,1),D_merged(:,2),'-','Color','r','LineWidth',2);
 legend('Mean from Lidar','Intersected points','Merged lines');
+title('After filtering');
 daspect([1 1 1]);
 hold off;
-title("Output:Extracted Files");
+
 saveas(gcf,'second_merged.png');
 
 disp('...Complete. Final figure is drawn in second_merged.png');

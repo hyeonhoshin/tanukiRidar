@@ -22,7 +22,7 @@ function [Y] = merge_in_batch(X)
     
     diff = d13/(d12+d23);
 
-    if 1/1.003 <= diff && diff <=1.003
+    if (1/1.0015 <= diff && diff <=1.0015) || (diff >=5) || (diff <=1/5)
         X(2,:) = [];
     end  
     Y = X;
