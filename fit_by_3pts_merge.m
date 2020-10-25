@@ -1,5 +1,5 @@
 % Mid term solutions by randsac
-% Init
+%% Data Reading by UI
 clc; clearvars;
 
 [file,path,indx] = uigetfile({'*.txt','A text file'});
@@ -19,38 +19,52 @@ if all(isnan(D(:,end)))
 end
 D = D; % Units to m
 
+% Initial parameters
 deg2rad = pi/180;
 step_num = length(D);
 angle_range = 240;
 
-% Calculate params
-U_o = median(D,1).';                                         %682*1
-V = var(D,0,1).'; % Calculate by sample variance.           682*1
+%% Rough Filtering by Maximum Likelihood 
+U_o = mean(D,1).';                                           %682*1
 T_o = (linspace(0,angle_range,step_num).')*deg2rad;          %682*1
 
-% Wavelet Denoising
-U = wdenoise(U_o,2, ...
+%% Wavelet Denoising
+U = wdenoise(U_o,3, ...
     'Wavelet', 'sym4', ...
     'DenoisingMethod', 'Bayes', ...
     'ThresholdRule', 'Median', ...
     'NoiseEstimate', 'LevelIndependent');
 
-% Merging Only
-X = U.*cos(T_o); Y = U.*sin(T_o);
-D_merged = three_pts_merge([X,Y]);
-T = atan2(D_merged(:,2),D_merged(:,1));
-U = sqrt(D_merged(:,2).^2 + D_merged(:,1).^2);
+% Plotting and saving
+xs = U_o.*cos(T_o); ys = U_o.*sin(T_o); % Tranform to Cartesian cord
+plot(xs(1:20),ys(1:20),'x-');
+hold on;
 
+X = U.*cos(T_o); Y = U.*sin(T_o); % Tranform to Cartesian cord
+plot(X(1:20),Y(1:20),'.-');
+daspect([1 1 1]);
+legend('Mean of original', 'Wavelet filtered');
+title('After filtering');
+hold off;
+saveas(gcf,'first_denoised.png');
+
+%% Three points merging
+
+D_merged = three_pts_merge([X,Y]);
+
+T = atan2(D_merged(:,2),D_merged(:,1));
+U = sqrt(D_merged(:,2).^2 + D_merged(:,1).^2);% Tranform to Polar cord
+
+% Plotting and saving
 plot(D_merged(:,1),D_merged(:,2),'o');
 hold on
 plot(D_merged(:,1),D_merged(:,2),'-');
-%plot(X,Y,'.');
-%plot(U_o.*cos(T_o),U_o.*sin(T_o),'x');
+legend('Merged points','Intersected points');
+title('After filtering');
+daspect([1 1 1]);
+hold off;
+title("
+saveas(gcf,'second_merged.png');
 
-%legend('Merged points','Path of pts','Wavelet filtered','Mean of original');
-legend('Merged points','Path of pts');
-
-
-disp('...Complete. Draw a figure in png file');
-
-% plot_lines(U, T,U(1)*cos(T(1)),U(1)*sin(T(1)));
+disp('...Complete. Final figure is drawn in second_merged.png');
+disp('As you want, you can see the preprocessed effects in first_denoised.png')
