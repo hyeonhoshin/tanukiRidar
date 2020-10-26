@@ -60,6 +60,7 @@ T = atan2(D_merged(:,2),D_merged(:,1));
 % ------ Parameters ------
 sampleSize = 2; % number of points to sample per trial
 maxDistance = 1; % max allowable distance for inliers
+thres_err_rate = 0.2;
 % -------------------------
 
 fitLineFcn = @(points) polyfit(points(:,1),points(:,2),1); % fit function using polyfit
@@ -90,7 +91,7 @@ for i = 2:length(U)-1
   
         err_rate = 1 - sum(inlierIdx)/length(inlierIdx);
   
-        if err_rate >= 0.2
+        if err_rate >= thres_err_rate
             bound = shape(1);
             while inlierIdx(bound) == 0
                 bound = bound - 1;
