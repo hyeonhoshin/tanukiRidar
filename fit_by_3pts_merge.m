@@ -27,6 +27,7 @@ angle_range = 240;
 %% Rough Filtering by Maximum Likelihood 
 U_o = mean(D,1).';                                           %682*1
 T_o = (linspace(0,angle_range,step_num).')*deg2rad;          %682*1
+V = var(D,0,1).';
 
 %% Wavelet Denoising
 U = wdenoise(U_o,3, ...
@@ -59,7 +60,7 @@ U = sqrt(D_merged(:,2).^2 + D_merged(:,1).^2);% Tranform to Polar cord
 % Plotting and saving
 
 xs = U_o.*cos(T_o); ys = U_o.*sin(T_o); % Only means.
-figure(w);
+figure(2);
 plot(xs,ys,'.','Color','b');
 hold on
 plot(D_merged(:,1),D_merged(:,2),'o','Color','g');

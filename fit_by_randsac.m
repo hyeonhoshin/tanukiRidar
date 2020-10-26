@@ -29,7 +29,7 @@ U_o = median(D,1).';                                         %682*1
 T_o = (linspace(0,angle_range,step_num).')*deg2rad;          %682*1
 
 %% Wavelet Denoising
-U = wdenoise(U_o,4, ...
+U = wdenoise(U_o,2, ...
     'Wavelet', 'sym4', ...
     'DenoisingMethod', 'Bayes', ...
     'ThresholdRule', 'Median', ...
@@ -48,61 +48,80 @@ title('After filtering');
 hold off;
 saveas(gcf,'first_denoised.png');
 
-D_merged = three_pts_merge([X,Y]);
+D_merged = three_pts_merge_for_rndsc([X,Y]);
 U = realsqrt(D_merged(:,1).^2+D_merged(:,2).^2);
-T_o = atan2(D_merged(:,2),D_merged(:,1));
+T = atan2(D_merged(:,2),D_merged(:,1));
+
+% U = realsqrt(X.^2+Y.^2);
+% T = atan2(Y,X);
 
 %% Ransac fitting
 
 % ------ Parameters ------
 sampleSize = 2; % number of points to sample per trial
 maxDistance = 1; % max allowable distance for inliers
-thres_angle_diff = 0.998;
 % -------------------------
 
 fitLineFcn = @(points) polyfit(points(:,1),points(:,2),1); % fit function using polyfit
 evalLineFcn = ...   % distance evaluation function
   @(model, points) sum((points(:, 2) - polyval(model, points(:,1))).^2,2);
 
-% windowing
-window_size = 8;
-stride = window_size/2;
 model = [];
 pts = [];
-for offset = 1:stride:length(U)-window_size
-    disp(['Progress.....',num2str(int32(offset*100/(length(U)-window_size))),'%']);
-    s = offset; e = window_size+offset;
-    u = U(s:e); t = T_o(s:e);
-    if all(u ~=0)
-        [modelRANSAC, inlierIdx] = ransac([u.*cos(t),u.*sin(t)],fitLineFcn,evalLineFcn, ...
-  sampleSize,maxDistance);  
-        model = [model; modelRANSAC];
-        dir = [1; modelRANSAC(1)];
-        
-        ind1 = 0; ind2 =0; flag = false;
-        for i = 1: length(inlierIdx)
-            if inlierIdx(i) == 1 && flag == false
-                ind1 = i;
-                flag = true;
+
+u = U(1,:); t = T(1,:);
+xs = u.*cos(t); ys = u.*sin(t);
+
+que = [];
+for i = 2:length(U)-1
+    u = U(i,:); t = T(i,:);
+    xs = u.*cos(t); ys = u.*sin(t);
+    que = [que; xs ys];
+    shape = size(que);
+    
+    if u < 1
+        que(end,:)=[];
+        continue
+    elseif shape(1) < 5
+        continue
+    else
+        [modelRANSAC, inlierIdx] = ransac([que(:,1),que(:,2)],fitLineFcn,evalLineFcn, ...
+      sampleSize,maxDistance);
+  
+        err_rate = 1 - sum(inlierIdx)/length(inlierIdx);
+  
+        if err_rate >= 0.2
+            bound = shape(1);
+            while inlierIdx(bound) == 0
+                bound = bound - 1;
             end
-            if flag == true
-                ind2 = i;
+
+            batch = que(1:bound,:);
+            que(1:bound,:) = [];
+            batch_shape = size(batch);
+
+            ind1 = 0; ind2 =0; flag = false;
+            for j = 1: batch_shape(1)
+                if inlierIdx(j) == 1 && flag == false
+                    ind1 = j;
+                    flag = true;
+                end
+                if flag == true
+                    ind2 = j;
+                end
             end
+            
+            x2 = batch(ind1,1); y2 = batch(ind1,2);
+            m = modelRANSAC(1); b = modelRANSAC(2);
+            b1 = [(x2 - b*m + m*y2)/(m^2 + 1); (y2*m^2 + x2*m + b)/(m^2 + 1)];
+
+            x2 = batch(ind2,1); y2 = batch(ind2,2);
+            b2 = [(x2 - b*m + m*y2)/(m^2 + 1); (y2*m^2 + x2*m + b)/(m^2 + 1)];
+
+            pts = [pts; b1.';b2.'];
         end
         
-        x2 = u(ind1).*cos(t(ind1)); y2 = u(ind1).*sin(t(ind1));
-        m = modelRANSAC(1); b = modelRANSAC(2);
-        b1 = [(x2 - b*m + m*y2)/(m^2 + 1); (y2*m^2 + x2*m + b)/(m^2 + 1)];
-        
-        x2 = u(ind2).*cos(t(ind2)); y2 = u(ind2).*sin(t(ind2));
-        b2 = [(x2 - b*m + m*y2)/(m^2 + 1); (y2*m^2 + x2*m + b)/(m^2 + 1)];
-        
-        pts = [pts; b1.';b2.'];
-    else
-        disp('0 vectors...pass')
     end
-    
-    disp('...Complete. Draw a figure in png file');
 end
 
 
@@ -114,27 +133,27 @@ pts_u = pts_u(pts_ind);
 pts_u = [pts_u(pts_a>=0);pts_u(pts_a<0)];
 pts_a = [pts_a(pts_a>=0);pts_a(pts_a<0)];
 
-plot(pts_u.*cos(pts_a),pts_u.*sin(pts_a),'x-');
+% Plotting and saving
 
-[R,A] = rect2polar(model(:,1),model(:,2));
+D_merged =[pts_u.*cos(pts_a),pts_u.*sin(pts_a)];
+
+xs = U_o.*cos(T_o); ys = U_o.*sin(T_o); % Only means.
 figure(2);
+plot(xs,ys,'.','Color','b');
+hold on
+plot(D_merged(:,1),D_merged(:,2),'o','Color','g');
 
-plot_lines(R, A,U(1)*cos(T_o(1)),U(1)*sin(T_o(1)));
-hold on;
+for i = 1:length(D_merged)-1
+    if ~is_inline(D_merged(i,:),D_merged(i+1,:))  %Condition : If is it on p-direction
+        % P-direction lines removal  
+        plot(D_merged(i:i+1,1),D_merged(i:i+1,2),'-','Color','r','LineWidth',2);
+    end
+end
+legend('Mean from Lidar','Intersected points','Merged lines');
+daspect([1 1 1]);
+hold off;
 title("Output:Extracted Files");
 saveas(gcf,'second_merged.png');
 
-% % Plotting and saving
-% plot(xs,ys,'.','Color','b');
-% hold on
-% plot(D_merged(:,1),D_merged(:,2),'o','Color','g');
-% plot(D_merged(:,1),D_merged(:,2),'-','Color','r','LineWidth',2);
-% legend('Mean from Lidar','Intersected points','Merged lines');
-% title('After filtering');
-% daspect([1 1 1]);
-% hold off;
-% 
-% saveas(gcf,'second_merged.png');
-% 
-% disp('...Complete. Final figure is drawn in second_merged.png');
-% disp('As you want, you can see the preprocessed effects in first_denoised.png')
+disp('...Complete. Final figure is drawn in second_merged.png');
+disp('As you want, you can see the preprocessed effects in first_denoised.png')

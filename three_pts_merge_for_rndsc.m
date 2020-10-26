@@ -19,8 +19,8 @@ function [Y] = merge_in_batch(X)
 
 %       x1 ----- x2 ----- x3 인 경우, x1~x3와 x1~x2+x2~x3는 거의 같음.
     % -------Parameters-------
-    thres_in    = 1.0015; % 1.002;
-    thres_out   = 5;  
+    thres_in    = 1.0002; % 1.002;
+    thres_out   = 3;  
     % ------------------------
 
     d13 = dist2(X(1,:),X(3,:));
